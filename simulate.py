@@ -1,7 +1,6 @@
 from classes.simulation import Simulation
 from classes.analysis import Analysis
 from classes.filewriter import fileWriter
-import sys
 
 
 nSteps = 100
