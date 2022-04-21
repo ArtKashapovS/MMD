@@ -7,7 +7,7 @@ n_steps = 100
 sim = Simulation()
 # Анализатор
 analysis = Analysis(sim.get_atoms())
-# Писатель
+# Писатор
 fw = FileWriter()
 
 

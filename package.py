@@ -1,12 +1,9 @@
-import random
-import math
-import copy
-import os
-import numpy as np
-import matplotlib.pyplot as plt
+import random, math, copy, os
+import numpy as np, matplotlib.pyplot as plt
 
 
 class Constants:
+
     def __init__(self) -> None:
         self.kb = 1.380e-23 # Постоная Больцмана (Дж/K)
         self.Nav = 6.022e23 # Число Авагадро молекулы/моль
@@ -43,6 +40,7 @@ class Atom:
         self.fz = 0
 
         self.potential = 0;
+
 
 class Simulation:
 
@@ -307,9 +305,11 @@ class FileWriter:
 class Analysis:
     
     consts = Constants()
-    kb = consts.kb 
+    kb = consts.kb
+    Na = consts.Nav
     sigma = consts.sigma
     dr = consts.dr
+    eps = consts.e
 
     V = consts.V
     numAtoms = consts.numAtoms
@@ -390,10 +390,10 @@ class Analysis:
         pass
         rdf = np.loadtxt("rdf.csv")
         for radius in range(0,50):
-            self.radiuslist.append(radius*self.dr)
+            self.radiuslist.append(radius * self.dr * (10 ** 10))
         plt.figure()
         plt.plot(self.radiuslist, rdf)
-        plt.xlabel('r')
+        plt.xlabel('r, Ангстр')
         plt.ylabel('Радиальное распределение')
         plt.show()
         
@@ -401,11 +401,13 @@ class Analysis:
     def plot_vac(self, nSteps):
        vac = np.loadtxt("vac.csv")
        vac[0] = 1
+       
        for time in range(0, nSteps):
-           self.timelist.append(float(time) * self.dt)
+            self.timelist.append(float(time) * self.dt * (10**12))
+       
        plt.figure()
        plt.plot(self.timelist, vac)
-       plt.xlabel('t')
+       plt.xlabel('t, пс')
        plt.ylabel('Авто корреляция скоростей')
        plt.grid()
        plt.show()
@@ -414,11 +416,11 @@ class Analysis:
 
         KE = []
         for temp in temperatures:
-            KE.append(3*self.numAtoms*self.kb*temp/2)
+            KE.append(3*self.numAtoms * self.kb * temp / 2)
         
-        steplist = []
+        time_list = []
         for time in range(0, nSteps):
-            steplist.append(float(time))
+            time_list.append(float(time) * self.dt * (10**12))
         
         etot = []
         for energy in range(0, nSteps):
@@ -426,9 +428,10 @@ class Analysis:
             
         plt.figure()
         # plt.plot(steplist, KE, label='Екин')
-        plt.plot(steplist, potentials, label='Епот')
+        # potentials_inkj_per_mol = [pot * self.eps * self.Na / self.numAtoms * 1.0e-3 for pot in potentials]
+        plt.plot(time_list, potentials, label='Епот')
         # plt.plot(steplist, etot, label='Еполн')
-        plt.xlabel('Шаг')
+        plt.xlabel('Время, пс')
         plt.ylabel('Энергия')
         plt.legend()
         plt.grid()
@@ -436,13 +439,13 @@ class Analysis:
 
     def plot_temperature(self, temperatures, nSteps):
     
-        steplist = []
-        for time in range(0, nSteps):
-            steplist.append(float(time))
+        time_list = []
+        for time in range(nSteps):
+            time_list.append(float(time) * self.dt * (10**12))
             
         plt.figure()
-        plt.plot(steplist, temperatures)
-        plt.xlabel('Шаг')
-        plt.ylabel('Температура')
+        plt.plot(time_list, temperatures)
+        plt.xlabel('Время, пс')
+        plt.ylabel('Температура, K')
         plt.grid()
         plt.show()
