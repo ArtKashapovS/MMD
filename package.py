@@ -16,8 +16,8 @@ class Constants:
         self.V = (10.229 * self.sigma)**3 # Объем коробки
         self.numAtoms = 864 # Число атомов
         self.dt = 1e-14 # шаг по времени, сек
-        self.lbox = 10.229 * self.sigma # Длина коробки
-
+        self.lbox = 10.229 * self.sigma #* math.pow(2.0, 1/3)# Длина коробки
+        
         self.temp = 90 # Температура, K
 
 
@@ -56,7 +56,9 @@ class Simulation:
     lbox = consts.lbox
     dt = consts.dt
 
-    rcut = 2.25*sigma # радиус отсечки, м
+    Volm = consts.V
+
+    rcut = 2.25 * sigma # радиус отсечки, м
     rcutsq = rcut**2 # квадрат р. от.
 
     currentTemp = 0
@@ -64,6 +66,8 @@ class Simulation:
     atoms = []
     temperatures = [] # список для температур
     potentials = [] # Список для пот. энергий
+
+    p_int = 0
     
     def __init__(self):
         print("Инициализация атомов..."),
@@ -74,7 +78,7 @@ class Simulation:
         self.correct_mom()
         print("Готово.")
         print("Запуск вычислений...")
-        
+         
     def assign_positions(self):
         
         n = int(math.ceil(self.numAtoms**(1.0/3.0))) # Число атомов в одном направлении
@@ -100,7 +104,7 @@ class Simulation:
         # Нормировка
         for number in range(0, 3*self.numAtoms):
             normDist[number] = normDist[number]*scaling_factor
-            
+
         abs_vel = []
         # Распределение скоростей
         for atom in range(0, self.numAtoms):
@@ -153,7 +157,7 @@ class Simulation:
         for atom1 in range(0, self.numAtoms-1):
             for atom2 in range(atom1+1, self.numAtoms):
                 self.calculate_force(atom1, atom2)
-                    
+        
         for atom in range(0, self.numAtoms):
             self.atoms[atom].fx *= 48*self.e
             self.atoms[atom].fy *= 48*self.e
@@ -161,7 +165,6 @@ class Simulation:
             self.atoms[atom].potential *= 4*self.e
             
     def calculate_force(self, atom1, atom2):
-        
         # Расстояние между атомами
         dx = self.atoms[atom1].x - self.atoms[atom2].x
         dy = self.atoms[atom1].y - self.atoms[atom2].y
@@ -180,7 +183,7 @@ class Simulation:
             force = fr6*(fr6 - 0.5)/r2
             pot = fr6*(fr6 - 1)
             
-            # Update forces
+            # Обновляем силы
             self.atoms[atom1].fx += force*dx
             self.atoms[atom2].fx -= force*dx
             self.atoms[atom1].fy += force*dy
@@ -188,9 +191,11 @@ class Simulation:
             self.atoms[atom1].fz += force*dz
             self.atoms[atom2].fz -= force*dz
             
-            # Update potentials
+            # Обновляем потенциалы
             self.atoms[atom1].potential += pot
             self.atoms[atom2].potential += pot
+
+            self.p_int += -force * r2 / 2
             
     def verlet_integration(self):
         # Интегрирование Верле
@@ -261,6 +266,11 @@ class Simulation:
                 self.atoms[atom].vx *= math.sqrt(self.temp/self.currentTemp)
                 self.atoms[atom].vy *= math.sqrt(self.temp/self.currentTemp)
                 self.atoms[atom].vz *= math.sqrt(self.temp/self.currentTemp)
+    
+    def get_pressure(self):
+        # print(self.numAtoms / self.Volm * self.kb * self.currentTemp)
+        # print(self.p_int / 6 / self.Volm)
+        return (self.numAtoms / self.Volm * self.kb * self.currentTemp) - self.p_int / 6 / self.Volm * self.e * self.sigma
 
 
 class FileWriter:
@@ -312,18 +322,19 @@ class Analysis:
     eps = consts.e
 
     V = consts.V
+    print('V =', V)
     numAtoms = consts.numAtoms
     dt = consts.dt
 
     lbox = consts.lbox
     
-    originalAtoms = [] # Список для атомамов
+    originalAtoms = [] # Список для атомов
     currentAtoms = []
     nr = [] # число частиц на расстоянии r
     velacfinit = 0 # авто кор. скоростей в момент времени t=0
     velacf = 0 # в след.
     
-    velaclist = [] # АКС для моделирование
+    velaclist = [] # АКС для моделирования
     radiuslist = []
     timelist = []
     
@@ -332,7 +343,7 @@ class Analysis:
         
     def update_atoms(self, atoms):
         self.currentAtoms = atoms
-        
+    
     def pair_distribution_function(self):
         atom_counts = [0]*50
         cur_r = 0
@@ -359,8 +370,9 @@ class Analysis:
         for radius in range(1, 50):
             atom_counts[radius] *= (self.V/self.numAtoms**2)/(4*math.pi*((radius*self.dr)**2)*self.dr)
         print("Готово.")    
-        return(atom_counts)        
-                    
+        return(atom_counts)
+
+
     def velocity_autocorrelation(self, step):
         vx = 0
         vy = 0
@@ -373,7 +385,7 @@ class Analysis:
             self.velacfinit += vx + vy + vz
             self.velacfinit /= self.numAtoms
             self.velaclist.append(self.velacfinit)
-        else:   
+        else:
             for atom in range(0, self.numAtoms):
                 vx += self.originalAtoms[atom].vx * self.currentAtoms[atom].vx
                 vy += self.originalAtoms[atom].vy * self.currentAtoms[atom].vy
@@ -393,7 +405,7 @@ class Analysis:
             self.radiuslist.append(radius * self.dr * (10 ** 10))
         plt.figure()
         plt.plot(self.radiuslist, rdf)
-        plt.xlabel('r, Ангстр')
+        plt.xlabel('r, А')
         plt.ylabel('Радиальное распределение')
         plt.show()
         
@@ -427,12 +439,13 @@ class Analysis:
             etot.append(KE[energy] + potentials[energy])
             
         plt.figure()
-        # plt.plot(steplist, KE, label='Екин')
+        plt.plot(time_list, [pot / max(np.abs(etot)) for pot in KE], label='Екин')
         # potentials_inkj_per_mol = [pot * self.eps * self.Na / self.numAtoms * 1.0e-3 for pot in potentials]
-        plt.plot(time_list, potentials, label='Епот')
-        # plt.plot(steplist, etot, label='Еполн')
+        potentials_au = [pot / max(np.abs(etot)) for pot in potentials]
+        plt.plot(time_list, potentials_au, label='Епот')
+        plt.plot(time_list, [pot / max(np.abs(etot)) for pot in etot], label='Еполн')
         plt.xlabel('Время, пс')
-        plt.ylabel('Энергия')
+        plt.ylabel('Энергия, au')
         plt.legend()
         plt.grid()
         plt.show()
