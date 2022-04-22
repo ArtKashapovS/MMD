@@ -348,7 +348,7 @@ class Analysis:
         atom_counts = [0]*50
         cur_r = 0
         
-        print("Создание радиального распределения..."),
+        # print("Создание радиального распределения..."),
         
         for atom1 in range(0, self.numAtoms - 1):
             for atom2 in range(1, self.numAtoms):
